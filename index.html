@@ -1,81 +1,97 @@
 <!doctype html>
-<html lang="ja"><head>
+<html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>ランコース メーカー</title>
+<title>Run Course Maker</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-:root{--bg:#f3f6f4;--card:#fff;--fg:#1d2a24;--sub:#5d6e66;--accent:#0f7a55;--line:#e85d2a;--bd:#d6e0da}
+:root{--bg:#f3f6f4;--card:#fff;--fg:#1d2a24;--sub:#5d6e66;--accent:#0f7a55;--bd:#d6e0da}
 @media (prefers-color-scheme:dark){:root{--bg:#111916;--card:#1a2420;--fg:#e6efe9;--sub:#9fb2a8;--accent:#3cc28f;--bd:#2c3a34}}
 *{box-sizing:border-box}html,body{height:100%;margin:0}
-body{font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;background:var(--bg);color:var(--fg);display:flex;flex-direction:column}
-#map{flex:1;min-height:45vh}
-.panel{background:var(--card);border-top:1px solid var(--bd);padding:12px max(14px,env(safe-area-inset-left)) calc(12px + env(safe-area-inset-bottom));display:grid;gap:10px}
-.stats{display:flex;gap:18px;align-items:baseline}
+body{font-family:-apple-system,"Helvetica Neue",sans-serif;background:var(--bg);color:var(--fg);display:flex;flex-direction:column}
+#map{flex:1;min-height:42vh}
+.panel{background:var(--card);border-top:1px solid var(--bd);padding:12px max(14px,env(safe-area-inset-left)) calc(12px + env(safe-area-inset-bottom));display:grid;gap:10px;max-height:58vh;overflow-y:auto}
+.stats{display:flex;gap:18px;align-items:baseline;flex-wrap:wrap}
 .stat b{font-size:28px;font-variant-numeric:tabular-nums}.stat span{color:var(--sub);font-size:12px;margin-left:3px}
 .tabs{display:flex;gap:6px}.tabs button{flex:1}
-button,input,select{font:inherit;border-radius:10px;border:1px solid var(--bd);padding:9px 10px;background:var(--bg);color:var(--fg)}
-button.on,button.pri{background:var(--accent);color:#fff;border-color:var(--accent)}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row input{width:74px}
+button,input{font:inherit;border-radius:10px;border:1px solid var(--bd);padding:9px 10px;background:var(--bg);color:var(--fg)}
+button{cursor:pointer}button.on,button.pri{background:var(--accent);color:#fff;border-color:var(--accent)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row input.sm{width:74px}
 .hint{font-size:12px;color:var(--sub)}
+h3{margin:4px 0 0;font-size:14px}
+.list{display:grid;gap:6px}
+.item{display:flex;align-items:center;gap:8px;border:1px solid var(--bd);border-radius:10px;padding:8px 10px}
+.item .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .km{font-variant-numeric:tabular-nums;color:var(--sub);font-size:13px}
+.item button{padding:6px 9px;font-size:13px}
 </style></head><body>
 <div id="map"></div>
 <div class="panel">
   <div class="stats">
     <div class="stat"><b id="dist">0.00</b><span>km</span></div>
-    <div class="stat"><b id="time">0:00</b><span>目安</span></div>
-    <div class="row" style="margin-left:auto"><span class="hint">ペース</span><input id="pace" value="6:00" inputmode="numeric"><span class="hint">/km</span></div>
+    <div class="stat"><b id="time">0 min</b><span>est.</span></div>
+    <div class="row" style="margin-left:auto"><span class="hint">Pace</span><input id="pace" class="sm" value="6:00"><span class="hint">/km</span></div>
   </div>
-  <div class="tabs"><button id="tDraw" class="on">なぞる</button><button id="tLoop">周回を自動</button><button id="tOut">往復を自動</button></div>
-  <div id="drawBox" class="row"><span class="hint">地図をタップで地点追加（道路に沿って自動で線）</span><button id="undo">1つ戻す</button><button id="clear">クリア</button></div>
+  <div class="tabs"><button id="tDraw" class="on">Draw</button><button id="tLoop">Auto Loop</button><button id="tOut">Out &amp; Back</button></div>
+  <div id="drawBox" class="row"><span class="hint">Tap the map to add points. The line follows roads.</span><button id="undo">Undo</button><button id="clear">Clear</button></div>
   <div id="autoBox" class="row" hidden>
-    <span class="hint">距離</span><input id="km" value="5" inputmode="decimal"><span class="hint">km</span>
-    <button id="gps">現在地を自宅に</button><button id="gen" class="pri">コース生成</button>
-    <div class="hint" style="width:100%">自宅＝地図をタップした地点（緑の印）。生成ボタンを押すたびに別の方向のコースを提案</div>
+    <span class="hint">Distance</span><input id="km" class="sm" value="5" inputmode="decimal"><span class="hint">km</span>
+    <button id="gps">Use my location</button><button id="gen" class="pri">Generate</button>
+    <div class="hint" style="width:100%">Tap the map to set your start point (Home). Each Generate tries a new direction.</div>
   </div>
+  <div class="row"><input id="name" placeholder="Course name (e.g. Park loop 5K)" style="flex:1;min-width:0"><button id="save" class="pri">Save course</button></div>
   <div class="hint" id="msg"></div>
+  <h3>My courses</h3>
+  <div class="list" id="list"></div>
 </div>
 <script>
-const map=L.map('map').setView([35.7006,139.4802],15); // 初期表示：国分寺駅付近
+const map=L.map('map').setView([35.7006,139.4802],15);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
-const API='https://routing.openstreetmap.de/routed-foot/route/v1/foot/';
+const API='https://routing.openstreetmap.de/routed-foot/route/v1/foot/',KEY='runCourses';
 let mode='draw',pts=[],legs=[],home=null,homeMk=null,line=L.polyline([],{color:'#e85d2a',weight:5}).addTo(map),mks=L.layerGroup().addTo(map),totalM=0;
 const $=id=>document.getElementById(id),msg=t=>$('msg').textContent=t||'';
+const SERVERS=[API,'https://router.project-osrm.org/route/v1/foot/'];
 async function route(list){
-  const r=await fetch(API+list.map(p=>p.lng+','+p.lat).join(';')+'?overview=full&geometries=geojson');
-  const j=await r.json();if(j.code!=='Ok')throw 0;
-  return{m:j.routes[0].distance,c:j.routes[0].geometry.coordinates.map(c=>[c[1],c[0]])};
+  const q=list.map(p=>p.lng+','+p.lat).join(';')+'?overview=full&geometries=geojson';
+  for(const s of SERVERS){
+    try{const r=await fetch(s+q);const j=await r.json();
+      if(j.code==='Ok')return{m:j.routes[0].distance,c:j.routes[0].geometry.coordinates.map(c=>[c[1],c[0]])};
+    }catch(e){console.warn('route failed',s,e)}
+  }
+  // Fallback: straight lines between points (roads not followed)
+  let m=0;for(let i=1;i<list.length;i++)m+=L.latLng(list[i-1]).distanceTo(list[i]);
+  usedFallback=true;
+  return{m,c:list.map(p=>[p.lat,p.lng])};
 }
+let usedFallback=false;
 function paceSec(){const[a,b]=$('pace').value.split(':').map(Number);return a*60+(b||0)}
-function show(){
-  $('dist').textContent=(totalM/1000).toFixed(2);
-  const s=Math.round(totalM/1000*paceSec()),h=Math.floor(s/3600),m=Math.floor(s%3600/60);
-  $('time').textContent=h?`${h}:${String(m).padStart(2,'0')}`:`${m}分`;
-}
+function fmtTime(m){const s=Math.round(m/1000*paceSec()),h=Math.floor(s/3600),mi=Math.floor(s%3600/60);return h?`${h}h ${mi}m`:`${mi} min`}
+function show(){$('dist').textContent=(totalM/1000).toFixed(2);$('time').textContent=fmtTime(totalM);renderList()}
 $('pace').oninput=show;
 function redrawDraw(){line.setLatLngs(legs.flatMap(l=>l.c));totalM=legs.reduce((a,l)=>a+l.m,0);mks.clearLayers();pts.forEach(p=>L.circleMarker(p,{radius:5,color:'#0f7a55'}).addTo(mks));show()}
-function setHome(ll){home=ll;if(homeMk)map.removeLayer(homeMk);homeMk=L.marker(ll).addTo(map).bindTooltip('自宅',{permanent:true})}
+function setHome(ll){home=ll;if(homeMk)map.removeLayer(homeMk);homeMk=L.marker(ll).addTo(map).bindTooltip('Home',{permanent:true})}
 map.on('click',async e=>{
   if(mode!=='draw'){setHome(e.latlng);return}
   const p=e.latlng;
-  if(pts.length){try{msg('経路計算中…');legs.push(await route([pts[pts.length-1],p]));msg()}catch{msg('経路が取れませんでした。少し近い場所をタップしてください');return}}
+  if(pts.length){try{msg('Finding route…');legs.push(await route([pts[pts.length-1],p]));msg()}catch{msg('No route found. Try a point closer by.');return}}
   pts.push(p);redrawDraw();
 });
 $('undo').onclick=()=>{pts.pop();legs.pop();redrawDraw()};
 $('clear').onclick=()=>{pts=[];legs=[];redrawDraw()};
 function tab(m){mode=m;['tDraw','tLoop','tOut'].forEach(id=>$(id).classList.toggle('on',{draw:'tDraw',loop:'tLoop',out:'tOut'}[m]===id));
   $('drawBox').hidden=m!=='draw';$('autoBox').hidden=m==='draw';line.setLatLngs([]);mks.clearLayers();totalM=0;show();
-  if(m==='draw')redrawDraw();else msg(home?'':'まず地図をタップして自宅（スタート地点）を決めてください')}
+  if(m==='draw')redrawDraw();else msg(home?'':'First, tap the map to set Home.')}
 $('tDraw').onclick=()=>tab('draw');$('tLoop').onclick=()=>tab('loop');$('tOut').onclick=()=>tab('out');
-$('gps').onclick=()=>navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>{const ll=L.latLng(p.coords.latitude,p.coords.longitude);setHome(ll);map.setView(ll,15)},()=>msg('現在地が取れませんでした。地図をタップしてください')):0;
+$('gps').onclick=()=>navigator.geolocation&&navigator.geolocation.getCurrentPosition(p=>{const ll=L.latLng(p.coords.latitude,p.coords.longitude);setHome(ll);map.setView(ll,15)},()=>msg('Could not get your location. Tap the map instead.'));
 function offset(ll,m,deg){const r=deg*Math.PI/180;return L.latLng(ll.lat+m*Math.cos(r)/111320,ll.lng+m*Math.sin(r)/(111320*Math.cos(ll.lat*Math.PI/180)))}
 $('gen').onclick=async()=>{
-  if(!home){msg('まず地図をタップして自宅を決めてください');return}
+  if(!home){msg('First, tap the map to set Home.');return}
   const target=parseFloat($('km').value)*1000;if(!target)return;
+  usedFallback=false;
   const dir=Math.random()*360;let size=mode==='loop'?target/(2*Math.PI*1.25):target/2/1.3,best=null;
   try{
     for(let i=0;i<4;i++){
-      msg(`コース計算中…（${i+1}/4）`);let res;
+      msg(`Building course… (${i+1}/4)`);let res;
       if(mode==='loop'){const c=offset(home,size,dir);const wp=[0,1,2].map(k=>offset(c,size,dir+180+(k+1)*90));res=await route([home,...wp,home])}
       else{const r=await route([home,offset(home,size,dir)]);res={m:r.m*2,c:[...r.c,...r.c.slice().reverse()]}}
       if(!best||Math.abs(res.m-target)<Math.abs(best.m-target))best=res;
@@ -83,8 +99,29 @@ $('gen').onclick=async()=>{
       size*=target/res.m;
     }
     line.setLatLngs(best.c);map.fitBounds(line.getBounds(),{padding:[20,20]});totalM=best.m;show();
-    msg(`目標${(target/1000).toFixed(1)}kmに対し${(best.m/1000).toFixed(2)}km。気に入らなければもう一度「コース生成」`);
-  }catch{msg('経路サーバーに接続できませんでした。時間をおいて再度お試しください')}
+    msg(`Target ${(target/1000).toFixed(1)} km → ${(best.m/1000).toFixed(2)} km. Tap Generate again for another option.`+(usedFallback?' (Route server unavailable: shown as straight lines.)':''));
+  }catch{msg('Could not reach the routing server. Please try again later.')}
 };
+// ---- Saved courses (stored in this browser) ----
+function load(){try{return JSON.parse(localStorage.getItem(KEY))||[]}catch{return[]}}
+function store(a){try{localStorage.setItem(KEY,JSON.stringify(a));return true}catch{msg('Could not save in this browser.');return false}}
+$('save').onclick=()=>{
+  const c=line.getLatLngs();if(c.length<2){msg('Make a course first.');return}
+  const name=$('name').value.trim()||`Course ${new Date().toLocaleDateString('en-US')}`;
+  const a=load();a.unshift({id:Date.now(),name,m:totalM,c:c.map(p=>[+p.lat.toFixed(5),+p.lng.toFixed(5)])});
+  if(store(a)){$('name').value='';msg(`Saved "${name}".`);renderList()}
+};
+function renderList(){
+  const a=load(),el=$('list');
+  if(!a.length){el.innerHTML='<div class="hint">No saved courses yet. Make a course and tap Save course.</div>';return}
+  el.innerHTML='';a.forEach(c=>{
+    const d=document.createElement('div');d.className='item';
+    d.innerHTML=`<span class="nm"></span><span class="km">${(c.m/1000).toFixed(2)} km · ${fmtTime(c.m)}</span><button>Show</button><button>Delete</button>`;
+    d.querySelector('.nm').textContent=c.name;
+    const[b1,b2]=d.querySelectorAll('button');
+    b1.onclick=()=>{mks.clearLayers();line.setLatLngs(c.c);totalM=c.m;map.fitBounds(line.getBounds(),{padding:[20,20]});$('dist').textContent=(c.m/1000).toFixed(2);$('time').textContent=fmtTime(c.m);msg(`Showing "${c.name}".`)};
+    b2.onclick=()=>{if(b2.dataset.ok){store(load().filter(x=>x.id!==c.id));renderList();msg('Deleted.')}else{b2.dataset.ok=1;b2.textContent='Sure?'}};
+    el.appendChild(d)});
+}
 show();
 </script></body></html>
