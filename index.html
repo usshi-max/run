@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ja"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ランコース メーカー</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{--bg:#f3f6f4;--card:#fff;--fg:#1d2a24;--sub:#5d6e66;--accent:#0f7a55;--line:#e85d2a;--bd:#d6e0da}
+@media (prefers-color-scheme:dark){:root{--bg:#111916;--card:#1a2420;--fg:#e6efe9;--sub:#9fb2a8;--accent:#3cc28f;--bd:#2c3a34}}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;background:var(--bg);color:var(--fg);display:flex;flex-direction:column}
+#map{flex:1;min-height:45vh}
+.panel{background:var(--card);border-top:1px solid var(--bd);padding:12px max(14px,env(safe-area-inset-left)) calc(12px + env(safe-area-inset-bottom));display:grid;gap:10px}
+.stats{display:flex;gap:18px;align-items:baseline}
+.stat b{font-size:28px;font-variant-numeric:tabular-nums}.stat span{color:var(--sub);font-size:12px;margin-left:3px}
+.tabs{display:flex;gap:6px}.tabs button{flex:1}
+button,input,select{font:inherit;border-radius:10px;border:1px solid var(--bd);padding:9px 10px;background:var(--bg);color:var(--fg)}
+button.on,button.pri{background:var(--accent);color:#fff;border-color:var(--accent)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row input{width:74px}
+.hint{font-size:12px;color:var(--sub)}
+</style></head><body>
+<div id="map"></div>
+<div class="panel">
+  <div class="stats">
+    <div class="stat"><b id="dist">0.00</b><span>km</span></div>
+    <div class="stat"><b id="time">0:00</b><span>目安</span></div>
+    <div class="row" style="margin-left:auto"><span class="hint">ペース</span><input id="pace" value="6:00" inputmode="numeric"><span class="hint">/km</span></div>
+  </div>
+  <div class="tabs"><button id="tDraw" class="on">なぞる</button><button id="tLoop">周回を自動</button><button id="tOut">往復を自動</button></div>
+  <div id="drawBox" class="row"><span class="hint">地図をタップで地点追加（道路に沿って自動で線）</span><button id="undo">1つ戻す</button><button id="clear">クリア</button></div>
+  <div id="autoBox" class="row" hidden>
+    <span class="hint">距離</span><input id="km" value="5" inputmode="decimal"><span class="hint">km</span>
+    <button id="gps">現在地を自宅に</button><button id="gen" class="pri">コース生成</button>
+    <div class="hint" style="width:100%">自宅＝地図をタップした地点（緑の印）。生成ボタンを押すたびに別の方向のコースを提案</div>
+  </div>
+  <div class="hint" id="msg"></div>
+</div>
+<script>
+const map=L.map('map').setView([35.7006,139.4802],15); // 初期表示：国分寺駅付近
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+const API='https://routing.openstreetmap.de/routed-foot/route/v1/foot/';
+let mode='draw',pts=[],legs=[],home=null,homeMk=null,line=L.polyline([],{color:'#e85d2a',weight:5}).addTo(map),mks=L.layerGroup().addTo(map),totalM=0;
+const $=id=>document.getElementById(id),msg=t=>$('msg').textContent=t||'';
+async function route(list){
+  const r=await fetch(API+list.map(p=>p.lng+','+p.lat).join(';')+'?overview=full&geometries=geojson');
+  const j=await r.json();if(j.code!=='Ok')throw 0;
+  return{m:j.routes[0].distance,c:j.routes[0].geometry.coordinates.map(c=>[c[1],c[0]])};
+}
+function paceSec(){const[a,b]=$('pace').value.split(':').map(Number);return a*60+(b||0)}
+function show(){
+  $('dist').textContent=(totalM/1000).toFixed(2);
+  const s=Math.round(totalM/1000*paceSec()),h=Math.floor(s/3600),m=Math.floor(s%3600/60);
+  $('time').textContent=h?`${h}:${String(m).padStart(2,'0')}`:`${m}分`;
+}
+$('pace').oninput=show;
+function redrawDraw(){line.setLatLngs(legs.flatMap(l=>l.c));totalM=legs.reduce((a,l)=>a+l.m,0);mks.clearLayers();pts.forEach(p=>L.circleMarker(p,{radius:5,color:'#0f7a55'}).addTo(mks));show()}
+function setHome(ll){home=ll;if(homeMk)map.removeLayer(homeMk);homeMk=L.marker(ll).addTo(map).bindTooltip('自宅',{permanent:true})}
+map.on('click',async e=>{
+  if(mode!=='draw'){setHome(e.latlng);return}
+  const p=e.latlng;
+  if(pts.length){try{msg('経路計算中…');legs.push(await route([pts[pts.length-1],p]));msg()}catch{msg('経路が取れませんでした。少し近い場所をタップしてください');return}}
+  pts.push(p);redrawDraw();
+});
+$('undo').onclick=()=>{pts.pop();legs.pop();redrawDraw()};
+$('clear').onclick=()=>{pts=[];legs=[];redrawDraw()};
+function tab(m){mode=m;['tDraw','tLoop','tOut'].forEach(id=>$(id).classList.toggle('on',{draw:'tDraw',loop:'tLoop',out:'tOut'}[m]===id));
+  $('drawBox').hidden=m!=='draw';$('autoBox').hidden=m==='draw';line.setLatLngs([]);mks.clearLayers();totalM=0;show();
+  if(m==='draw')redrawDraw();else msg(home?'':'まず地図をタップして自宅（スタート地点）を決めてください')}
+$('tDraw').onclick=()=>tab('draw');$('tLoop').onclick=()=>tab('loop');$('tOut').onclick=()=>tab('out');
+$('gps').onclick=()=>navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>{const ll=L.latLng(p.coords.latitude,p.coords.longitude);setHome(ll);map.setView(ll,15)},()=>msg('現在地が取れませんでした。地図をタップしてください')):0;
+function offset(ll,m,deg){const r=deg*Math.PI/180;return L.latLng(ll.lat+m*Math.cos(r)/111320,ll.lng+m*Math.sin(r)/(111320*Math.cos(ll.lat*Math.PI/180)))}
+$('gen').onclick=async()=>{
+  if(!home){msg('まず地図をタップして自宅を決めてください');return}
+  const target=parseFloat($('km').value)*1000;if(!target)return;
+  const dir=Math.random()*360;let size=mode==='loop'?target/(2*Math.PI*1.25):target/2/1.3,best=null;
+  try{
+    for(let i=0;i<4;i++){
+      msg(`コース計算中…（${i+1}/4）`);let res;
+      if(mode==='loop'){const c=offset(home,size,dir);const wp=[0,1,2].map(k=>offset(c,size,dir+180+(k+1)*90));res=await route([home,...wp,home])}
+      else{const r=await route([home,offset(home,size,dir)]);res={m:r.m*2,c:[...r.c,...r.c.slice().reverse()]}}
+      if(!best||Math.abs(res.m-target)<Math.abs(best.m-target))best=res;
+      if(Math.abs(res.m-target)/target<0.05)break;
+      size*=target/res.m;
+    }
+    line.setLatLngs(best.c);map.fitBounds(line.getBounds(),{padding:[20,20]});totalM=best.m;show();
+    msg(`目標${(target/1000).toFixed(1)}kmに対し${(best.m/1000).toFixed(2)}km。気に入らなければもう一度「コース生成」`);
+  }catch{msg('経路サーバーに接続できませんでした。時間をおいて再度お試しください')}
+};
+show();
+</script></body></html>
