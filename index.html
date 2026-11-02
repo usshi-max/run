@@ -5,123 +5,179 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-:root{--bg:#f3f6f4;--card:#fff;--fg:#1d2a24;--sub:#5d6e66;--accent:#0f7a55;--bd:#d6e0da}
-@media (prefers-color-scheme:dark){:root{--bg:#111916;--card:#1a2420;--fg:#e6efe9;--sub:#9fb2a8;--accent:#3cc28f;--bd:#2c3a34}}
+:root{--bg:#f3f6f4;--card:#fff;--fg:#1d2a24;--sub:#5d6e66;--accent:#0f7a55;--bd:#d6e0da;--soft:#e6f2ec}
+@media (prefers-color-scheme:dark){:root{--bg:#111916;--card:#1a2420;--fg:#e6efe9;--sub:#9fb2a8;--accent:#3cc28f;--bd:#2c3a34;--soft:#1f3229}}
 *{box-sizing:border-box}html,body{height:100%;margin:0}
 body{font-family:-apple-system,"Helvetica Neue",sans-serif;background:var(--bg);color:var(--fg);display:flex;flex-direction:column}
-#map{flex:1;min-height:42vh}
-.panel{background:var(--card);border-top:1px solid var(--bd);padding:12px max(14px,env(safe-area-inset-left)) calc(12px + env(safe-area-inset-bottom));display:grid;gap:10px;max-height:58vh;overflow-y:auto}
-.stats{display:flex;gap:18px;align-items:baseline;flex-wrap:wrap}
-.stat b{font-size:28px;font-variant-numeric:tabular-nums}.stat span{color:var(--sub);font-size:12px;margin-left:3px}
-.tabs{display:flex;gap:6px}.tabs button{flex:1}
-button,input{font:inherit;border-radius:10px;border:1px solid var(--bd);padding:9px 10px;background:var(--bg);color:var(--fg)}
-button{cursor:pointer}button.on,button.pri{background:var(--accent);color:#fff;border-color:var(--accent)}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row input.sm{width:74px}
-.hint{font-size:12px;color:var(--sub)}
-h3{margin:4px 0 0;font-size:14px}
-.list{display:grid;gap:6px}
+#map{flex:1;min-height:38vh}
+.result{display:flex;gap:16px;align-items:baseline;padding:10px max(14px,env(safe-area-inset-left));background:var(--card);border-top:1px solid var(--bd)}
+.result b{font-size:30px;font-variant-numeric:tabular-nums}.result span{color:var(--sub);font-size:12px;margin-left:3px}
+.panel{background:var(--card);padding:4px max(14px,env(safe-area-inset-left)) calc(14px + env(safe-area-inset-bottom));display:grid;gap:12px;max-height:56vh;overflow-y:auto}
+.step{display:grid;gap:8px}
+.step h2{margin:0;font-size:13px;letter-spacing:.04em;color:var(--sub);text-transform:uppercase}
+button,input{font:inherit;font-size:16px;border-radius:10px;border:1px solid var(--bd);padding:10px 12px;background:var(--bg);color:var(--fg)}
+button{cursor:pointer}button.pri{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row input{flex:1;min-width:0}
+.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.modes button{display:grid;gap:2px;padding:10px 6px;font-size:14px;line-height:1.2}
+.modes button small{font-size:11px;color:var(--sub)}
+.modes button.on{background:var(--soft);border-color:var(--accent);border-width:2px}
+.status{font-size:13px;color:var(--sub);min-height:1.2em}
+.startTag{font-size:13px;padding:6px 10px;border-radius:8px;background:var(--soft)}
 .item{display:flex;align-items:center;gap:8px;border:1px solid var(--bd);border-radius:10px;padding:8px 10px}
 .item .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .item .km{font-variant-numeric:tabular-nums;color:var(--sub);font-size:13px}
 .item button{padding:6px 9px;font-size:13px}
+label.chk{display:flex;gap:6px;align-items:center;font-size:14px}
 </style></head><body>
 <div id="map"></div>
+<div class="result">
+  <div><b id="dist">0.00</b><span>km</span></div>
+  <div><b id="time">0 min</b><span>at</span></div>
+  <div class="row" style="margin-left:auto;flex-wrap:nowrap"><input id="pace" value="6:00" style="width:70px;flex:none;padding:6px 8px"><span style="color:var(--sub);font-size:12px">/km</span></div>
+</div>
 <div class="panel">
-  <div class="stats">
-    <div class="stat"><b id="dist">0.00</b><span>km</span></div>
-    <div class="stat"><b id="time">0 min</b><span>est.</span></div>
-    <div class="row" style="margin-left:auto"><span class="hint">Pace</span><input id="pace" class="sm" value="6:00"><span class="hint">/km</span></div>
+  <div class="status" id="msg">Step 1: set your start point.</div>
+
+  <div class="step">
+    <h2>1. Start</h2>
+    <form id="fStart" class="row"><input id="startQ" placeholder="Address or station (e.g. 国分寺駅)"><button class="pri">Set</button></form>
+    <div class="row"><button id="gps" type="button">📍 Use my location</button><span class="startTag" id="startTag">Not set — or tap the map</span></div>
   </div>
-  <div class="tabs"><button id="tDraw" class="on">Draw</button><button id="tLoop">Auto Loop</button><button id="tOut">Out &amp; Back</button></div>
-  <div id="drawBox" class="row"><span class="hint">Tap the map to add points. The line follows roads.</span><button id="undo">Undo</button><button id="clear">Clear</button></div>
-  <div id="autoBox" class="row" hidden>
-    <span class="hint">Distance</span><input id="km" class="sm" value="5" inputmode="decimal"><span class="hint">km</span>
-    <button id="gps">Use my location</button><button id="gen" class="pri">Generate</button>
-    <div class="hint" style="width:100%">Tap the map to set your start point (Home). Each Generate tries a new direction.</div>
+
+  <div class="step">
+    <h2>2. Choose how</h2>
+    <div class="modes">
+      <button data-m="dest" class="on">To a place<small>A → B</small></button>
+      <button data-m="loop">Loop<small>by distance</small></button>
+      <button data-m="draw">Draw<small>tap the map</small></button>
+    </div>
   </div>
-  <div class="row"><input id="name" placeholder="Course name (e.g. Park loop 5K)" style="flex:1;min-width:0"><button id="save" class="pri">Save course</button></div>
-  <div class="hint" id="msg"></div>
-  <h3>My courses</h3>
-  <div class="list" id="list"></div>
+
+  <div class="step" id="pDest">
+    <h2>3. Destination</h2>
+    <form id="fDest" class="row"><input id="destQ" placeholder="Address or place (e.g. 武蔵国分寺公園)"><button class="pri">Get distance</button></form>
+    <label class="chk"><input type="checkbox" id="rt" style="width:auto"> Round trip (go and come back)</label>
+  </div>
+
+  <div class="step" id="pLoop" hidden>
+    <h2>3. Distance</h2>
+    <div class="row"><input id="km" value="5" inputmode="decimal" style="flex:none;width:80px"><span>km</span><button id="gen" class="pri" style="flex:1">Make a loop</button></div>
+    <div class="status">Not happy with it? Tap again for a different direction.</div>
+  </div>
+
+  <div class="step" id="pDraw" hidden>
+    <h2>3. Draw</h2>
+    <div class="status">Tap the map point by point. The line follows roads.</div>
+    <div class="row"><button id="undo">Undo</button><button id="clear">Clear</button></div>
+  </div>
+
+  <div class="step">
+    <h2>Save</h2>
+    <div class="row"><input id="name" placeholder="Course name"><button id="save" class="pri">Save</button></div>
+  </div>
+
+  <div class="step">
+    <h2>My courses</h2>
+    <div id="list" style="display:grid;gap:6px"></div>
+  </div>
 </div>
 <script>
+const $=id=>document.getElementById(id),msg=t=>$('msg').textContent=t||'';
 const map=L.map('map').setView([35.7006,139.4802],15);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
-const API='https://routing.openstreetmap.de/routed-foot/route/v1/foot/',KEY='runCourses';
-let mode='draw',pts=[],legs=[],home=null,homeMk=null,line=L.polyline([],{color:'#e85d2a',weight:5}).addTo(map),mks=L.layerGroup().addTo(map),totalM=0;
-const $=id=>document.getElementById(id),msg=t=>$('msg').textContent=t||'';
-const SERVERS=[API,'https://router.project-osrm.org/route/v1/foot/'];
+const SERVERS=['https://routing.openstreetmap.de/routed-foot/route/v1/foot/','https://router.project-osrm.org/route/v1/foot/'],KEY='runCourses';
+let mode='dest',start=null,startMk=null,destMk=null,pts=[],legs=[],totalM=0,fallback=false;
+const line=L.polyline([],{color:'#e85d2a',weight:5}).addTo(map),mks=L.layerGroup().addTo(map);
+const icon=(t,c)=>L.divIcon({className:'',html:`<div style="background:${c};color:#fff;font:600 12px sans-serif;padding:3px 7px;border-radius:12px;white-space:nowrap;transform:translate(-50%,-50%);display:inline-block;box-shadow:0 1px 3px #0005">${t}</div>`});
+
 async function route(list){
   const q=list.map(p=>p.lng+','+p.lat).join(';')+'?overview=full&geometries=geojson';
-  for(const s of SERVERS){
-    try{const r=await fetch(s+q);const j=await r.json();
-      if(j.code==='Ok')return{m:j.routes[0].distance,c:j.routes[0].geometry.coordinates.map(c=>[c[1],c[0]])};
-    }catch(e){console.warn('route failed',s,e)}
-  }
-  // Fallback: straight lines between points (roads not followed)
-  let m=0;for(let i=1;i<list.length;i++)m+=L.latLng(list[i-1]).distanceTo(list[i]);
-  usedFallback=true;
+  for(const s of SERVERS){try{const j=await (await fetch(s+q)).json();
+    if(j.code==='Ok')return{m:j.routes[0].distance,c:j.routes[0].geometry.coordinates.map(c=>[c[1],c[0]])}}catch(e){}}
+  fallback=true;let m=0;for(let i=1;i<list.length;i++)m+=L.latLng(list[i-1]).distanceTo(list[i]);
   return{m,c:list.map(p=>[p.lat,p.lng])};
 }
-let usedFallback=false;
-function paceSec(){const[a,b]=$('pace').value.split(':').map(Number);return a*60+(b||0)}
-function fmtTime(m){const s=Math.round(m/1000*paceSec()),h=Math.floor(s/3600),mi=Math.floor(s%3600/60);return h?`${h}h ${mi}m`:`${mi} min`}
-function show(){$('dist').textContent=(totalM/1000).toFixed(2);$('time').textContent=fmtTime(totalM);renderList()}
+async function geocode(q){
+  const j=await (await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=jp&q='+encodeURIComponent(q))).json();
+  if(!j.length)throw 'nf';return{ll:L.latLng(+j[0].lat,+j[0].lon),name:j[0].display_name.split(',')[0]};
+}
+function paceSec(){const[a,b]=$('pace').value.split(':').map(Number);return(a||6)*60+(b||0)}
+function fmt(m){const s=Math.round(m/1000*paceSec()),h=Math.floor(s/3600),mi=Math.floor(s%3600/60);return h?`${h}h ${mi}m`:`${mi} min`}
+function show(){$('dist').textContent=(totalM/1000).toFixed(2);$('time').textContent=fmt(totalM);renderList()}
 $('pace').oninput=show;
-function redrawDraw(){line.setLatLngs(legs.flatMap(l=>l.c));totalM=legs.reduce((a,l)=>a+l.m,0);mks.clearLayers();pts.forEach(p=>L.circleMarker(p,{radius:5,color:'#0f7a55'}).addTo(mks));show()}
-function setHome(ll){home=ll;if(homeMk)map.removeLayer(homeMk);homeMk=L.marker(ll).addTo(map).bindTooltip('Home',{permanent:true})}
-map.on('click',async e=>{
-  if(mode!=='draw'){setHome(e.latlng);return}
-  const p=e.latlng;
-  if(pts.length){try{msg('Finding route…');legs.push(await route([pts[pts.length-1],p]));msg()}catch{msg('No route found. Try a point closer by.');return}}
-  pts.push(p);redrawDraw();
+function drawResult(c,m){line.setLatLngs(c);totalM=m;show();if(c.length>1)map.fitBounds(line.getBounds(),{padding:[30,30]})}
+
+function setStart(ll,label){
+  start=ll;if(startMk)map.removeLayer(startMk);
+  startMk=L.marker(ll,{icon:icon('Start','#0f7a55')}).addTo(map);
+  $('startTag').textContent='✓ '+(label||'Point on map');map.setView(ll,Math.max(map.getZoom(),15));
+  if(mode==='draw'){pts=[ll];legs=[];redraw()}
+  msg({dest:'Step 3: enter a destination.',loop:'Step 3: enter a distance and tap Make a loop.',draw:'Step 3: tap the map to add points.'}[mode]);
+}
+$('fStart').onsubmit=async e=>{e.preventDefault();const q=$('startQ').value.trim();if(!q)return;msg('Searching…');
+  try{const r=await geocode(q);setStart(r.ll,r.name)}catch{msg('Start not found. Try a station or town name.')}};
+$('gps').onclick=()=>{if(!navigator.geolocation)return msg('Location not available.');msg('Getting your location…');
+  navigator.geolocation.getCurrentPosition(p=>setStart(L.latLng(p.coords.latitude,p.coords.longitude),'My location'),()=>msg('Could not get your location. Type an address instead.'))};
+
+document.querySelectorAll('.modes button').forEach(b=>b.onclick=()=>{
+  mode=b.dataset.m;document.querySelectorAll('.modes button').forEach(x=>x.classList.toggle('on',x===b));
+  $('pDest').hidden=mode!=='dest';$('pLoop').hidden=mode!=='loop';$('pDraw').hidden=mode!=='draw';
+  line.setLatLngs([]);mks.clearLayers();if(destMk){map.removeLayer(destMk);destMk=null}totalM=0;show();
+  if(mode==='draw'){pts=start?[start]:[];legs=[];redraw()}
+  msg(start?{dest:'Enter a destination.',loop:'Enter a distance and tap Make a loop.',draw:'Tap the map to add points.'}[mode]:'Step 1: set your start point first.');
 });
-$('undo').onclick=()=>{pts.pop();legs.pop();redrawDraw()};
-$('clear').onclick=()=>{pts=[];legs=[];redrawDraw()};
-function tab(m){mode=m;['tDraw','tLoop','tOut'].forEach(id=>$(id).classList.toggle('on',{draw:'tDraw',loop:'tLoop',out:'tOut'}[m]===id));
-  $('drawBox').hidden=m!=='draw';$('autoBox').hidden=m==='draw';line.setLatLngs([]);mks.clearLayers();totalM=0;show();
-  if(m==='draw')redrawDraw();else msg(home?'':'First, tap the map to set Home.')}
-$('tDraw').onclick=()=>tab('draw');$('tLoop').onclick=()=>tab('loop');$('tOut').onclick=()=>tab('out');
-$('gps').onclick=()=>navigator.geolocation&&navigator.geolocation.getCurrentPosition(p=>{const ll=L.latLng(p.coords.latitude,p.coords.longitude);setHome(ll);map.setView(ll,15)},()=>msg('Could not get your location. Tap the map instead.'));
+
+map.on('click',async e=>{
+  if(mode!=='draw'||!start){setStart(e.latlng);return}
+  fallback=false;msg('Finding route…');legs.push(await route([pts[pts.length-1],e.latlng]));pts.push(e.latlng);redraw();
+  msg(fallback?'Road data unavailable: straight line used.':'');
+});
+function redraw(){mks.clearLayers();pts.slice(1).forEach(p=>L.circleMarker(p,{radius:5,color:'#e85d2a'}).addTo(mks));
+  line.setLatLngs(legs.flatMap(l=>l.c));totalM=legs.reduce((a,l)=>a+l.m,0);show()}
+$('undo').onclick=()=>{if(pts.length>1){pts.pop();legs.pop();redraw()}};
+$('clear').onclick=()=>{pts=start?[start]:[];legs=[];redraw()};
+
+$('fDest').onsubmit=async e=>{e.preventDefault();
+  if(!start)return msg('Step 1: set your start point first.');
+  const q=$('destQ').value.trim();if(!q)return;msg('Searching…');
+  try{const d=await geocode(q);if(destMk)map.removeLayer(destMk);destMk=L.marker(d.ll,{icon:icon(d.name,'#e85d2a')}).addTo(map);
+    fallback=false;const r=await route([start,d.ll]);
+    const rt=$('rt').checked;drawResult(rt?[...r.c,...r.c.slice().reverse()]:r.c,rt?r.m*2:r.m);
+    $('name').value=`To ${d.name}`+(rt?' (round trip)':'');
+    msg(`${rt?'Round trip':'One way'} to ${d.name}.`+(fallback?' Road data unavailable: straight-line distance.':''));
+  }catch{msg('Destination not found. Try a station, park or town name.')}};
+$('rt').onchange=()=>{if(destMk)$('fDest').requestSubmit()};
+
 function offset(ll,m,deg){const r=deg*Math.PI/180;return L.latLng(ll.lat+m*Math.cos(r)/111320,ll.lng+m*Math.sin(r)/(111320*Math.cos(ll.lat*Math.PI/180)))}
 $('gen').onclick=async()=>{
-  if(!home){msg('First, tap the map to set Home.');return}
-  const target=parseFloat($('km').value)*1000;if(!target)return;
-  usedFallback=false;
-  const dir=Math.random()*360;let size=mode==='loop'?target/(2*Math.PI*1.25):target/2/1.3,best=null;
-  try{
-    for(let i=0;i<4;i++){
-      msg(`Building course… (${i+1}/4)`);let res;
-      if(mode==='loop'){const c=offset(home,size,dir);const wp=[0,1,2].map(k=>offset(c,size,dir+180+(k+1)*90));res=await route([home,...wp,home])}
-      else{const r=await route([home,offset(home,size,dir)]);res={m:r.m*2,c:[...r.c,...r.c.slice().reverse()]}}
-      if(!best||Math.abs(res.m-target)<Math.abs(best.m-target))best=res;
-      if(Math.abs(res.m-target)/target<0.05)break;
-      size*=target/res.m;
-    }
-    line.setLatLngs(best.c);map.fitBounds(line.getBounds(),{padding:[20,20]});totalM=best.m;show();
-    msg(`Target ${(target/1000).toFixed(1)} km → ${(best.m/1000).toFixed(2)} km. Tap Generate again for another option.`+(usedFallback?' (Route server unavailable: shown as straight lines.)':''));
-  }catch{msg('Could not reach the routing server. Please try again later.')}
+  if(!start)return msg('Step 1: set your start point first.');
+  const target=parseFloat($('km').value)*1000;if(!(target>0))return msg('Enter a distance in km.');
+  fallback=false;const dir=Math.random()*360;let R=target/(2*Math.PI*1.3),best=null;
+  for(let i=0;i<4;i++){
+    msg(`Making a loop… (${i+1}/4)`);
+    const c=offset(start,R,dir),wp=[1,2,3].map(k=>offset(c,R,dir+180+k*90));
+    const res=await route([start,...wp,start]);
+    if(!best||Math.abs(res.m-target)<Math.abs(best.m-target))best=res;
+    if(Math.abs(res.m-target)/target<0.06)break;R*=target/res.m;
+  }
+  drawResult(best.c,best.m);$('name').value=`Loop ${(best.m/1000).toFixed(1)}K`;
+  msg(`Loop ready: ${(best.m/1000).toFixed(2)} km (target ${(target/1000).toFixed(1)} km).`+(fallback?' Road data unavailable: straight lines.':''));
 };
-// ---- Saved courses (stored in this browser) ----
+
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||[]}catch{return[]}}
 function store(a){try{localStorage.setItem(KEY,JSON.stringify(a));return true}catch{msg('Could not save in this browser.');return false}}
-$('save').onclick=()=>{
-  const c=line.getLatLngs();if(c.length<2){msg('Make a course first.');return}
-  const name=$('name').value.trim()||`Course ${new Date().toLocaleDateString('en-US')}`;
-  const a=load();a.unshift({id:Date.now(),name,m:totalM,c:c.map(p=>[+p.lat.toFixed(5),+p.lng.toFixed(5)])});
-  if(store(a)){$('name').value='';msg(`Saved "${name}".`);renderList()}
-};
-function renderList(){
-  const a=load(),el=$('list');
-  if(!a.length){el.innerHTML='<div class="hint">No saved courses yet. Make a course and tap Save course.</div>';return}
-  el.innerHTML='';a.forEach(c=>{
-    const d=document.createElement('div');d.className='item';
-    d.innerHTML=`<span class="nm"></span><span class="km">${(c.m/1000).toFixed(2)} km · ${fmtTime(c.m)}</span><button>Show</button><button>Delete</button>`;
-    d.querySelector('.nm').textContent=c.name;
-    const[b1,b2]=d.querySelectorAll('button');
-    b1.onclick=()=>{mks.clearLayers();line.setLatLngs(c.c);totalM=c.m;map.fitBounds(line.getBounds(),{padding:[20,20]});$('dist').textContent=(c.m/1000).toFixed(2);$('time').textContent=fmtTime(c.m);msg(`Showing "${c.name}".`)};
-    b2.onclick=()=>{if(b2.dataset.ok){store(load().filter(x=>x.id!==c.id));renderList();msg('Deleted.')}else{b2.dataset.ok=1;b2.textContent='Sure?'}};
-    el.appendChild(d)});
-}
+$('save').onclick=()=>{const c=line.getLatLngs();if(c.length<2)return msg('Make a course first.');
+  const name=$('name').value.trim()||'My course',a=load();
+  a.unshift({id:Date.now(),name,m:totalM,c:c.map(p=>[+p.lat.toFixed(5),+p.lng.toFixed(5)])});
+  if(store(a)){msg(`Saved “${name}”.`);renderList()}};
+function renderList(){const a=load(),el=$('list');
+  if(!a.length){el.innerHTML='<div class="status">No saved courses yet.</div>';return}
+  el.innerHTML='';a.forEach(c=>{const d=document.createElement('div');d.className='item';
+    d.innerHTML=`<span class="nm"></span><span class="km">${(c.m/1000).toFixed(2)} km · ${fmt(c.m)}</span><button>Show</button><button>Delete</button>`;
+    d.querySelector('.nm').textContent=c.name;const[b1,b2]=d.querySelectorAll('button');
+    b1.onclick=()=>{mks.clearLayers();drawResult(c.c,c.m);msg(`Showing “${c.name}”.`)};
+    b2.onclick=()=>{if(b2.dataset.ok){store(load().filter(x=>x.id!==c.id));renderList()}else{b2.dataset.ok=1;b2.textContent='Sure?'}};
+    el.appendChild(d)})}
 show();
 </script></body></html>
