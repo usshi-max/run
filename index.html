@@ -41,7 +41,7 @@ label.chk{display:flex;gap:6px;align-items:center;font-size:14px}
 
   <div class="step">
     <h2>1. Start</h2>
-    <form id="fStart" class="row"><input id="startQ" placeholder="Address or station (e.g. 国分寺駅)"><button class="pri">Set</button></form>
+    <form id="fStart" class="row"><input id="startQ" placeholder="Address or station (e.g. 東京駅)"><button class="pri">Set</button></form>
     <div class="row"><button id="gps" type="button">📍 Use my location</button><span class="startTag" id="startTag">Not set — or tap the map</span></div>
   </div>
 
@@ -56,7 +56,7 @@ label.chk{display:flex;gap:6px;align-items:center;font-size:14px}
 
   <div class="step" id="pDest">
     <h2>3. Destination</h2>
-    <form id="fDest" class="row"><input id="destQ" placeholder="Address or place (e.g. 武蔵国分寺公園)"><button class="pri">Get distance</button></form>
+    <form id="fDest" class="row"><input id="destQ" placeholder="Address or place (e.g. 新宿駅)"><button class="pri">Get distance</button></form>
     <label class="chk"><input type="checkbox" id="rt" style="width:auto"> Round trip (go and come back)</label>
   </div>
 
@@ -84,7 +84,7 @@ label.chk{display:flex;gap:6px;align-items:center;font-size:14px}
 </div>
 <script>
 const $=id=>document.getElementById(id),msg=t=>$('msg').textContent=t||'';
-const map=L.map('map').setView([35.7006,139.4802],15);
+const map=L.map('map').setView([35.6812,139.7671],15);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
 const SERVERS=['https://routing.openstreetmap.de/routed-foot/route/v1/foot/','https://router.project-osrm.org/route/v1/foot/'],KEY='runCourses';
 let mode='dest',start=null,startMk=null,destMk=null,pts=[],legs=[],totalM=0,fallback=false;
@@ -180,4 +180,6 @@ function renderList(){const a=load(),el=$('list');
     b2.onclick=()=>{if(b2.dataset.ok){store(load().filter(x=>x.id!==c.id));renderList()}else{b2.dataset.ok=1;b2.textContent='Sure?'}};
     el.appendChild(d)})}
 show();
+// Default start: Tokyo Station
+$('startQ').value='東京駅';setStart(L.latLng(35.6812,139.7671),'Tokyo Station (default)');
 </script></body></html>
